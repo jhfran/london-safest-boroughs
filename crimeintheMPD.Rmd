@@ -20,6 +20,8 @@ I explored crime data provided by the Met Police to gain insight into the level 
 
 *Crimes committed in the City of London were not covered as they are under the jurisdiction of the City of London Police. This project was also carried out at the end of 2019. Analysis may be updated in the future to include the City of London, crime rates (as opposed to 'number of recorded offences') and take more recent years into account*
 
+*Code and files used to complete this report can be found at https://github.com/jhfran/london-safest-boroughs*
+
 ```{r, include=FALSE}
 #Loading initial packages and wrangling data
 #####
