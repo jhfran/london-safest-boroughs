@@ -1,0 +1,505 @@
+---
+title: "London's Safest and Most Dangerous Boroughs"
+author: "By Jhenielle Francis"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction 
+
+The Metropolitan Police District (MPD) is the area of Greater London policed by the Metropolitan Police (Met Police). This area contains the 32 Greater London boroughs with the exclusion of the City of London. 
+
+I explored crime data provided by the Met Police to gain insight into the level of crime and type of recorded offences in the MPD. Furthermore, using number of recorded offences as an indicator of safety, I aimed to answer the question: what were the safest and most dangerous boroughs within the London Metropolitan Police District in 2018?
+
+**For the year 2018, Sutton was found to be the safest borough in the MPD and Westminster was found to be the most dangerous.** 
+
+*Crimes committed in the City of London were not covered as they are under the jurisdiction of the City of London Police. This project was also carried out at the end of 2019. Analysis may be updated in the future to include the City of London, crime rates (as opposed to 'number of recorded offences') and take more recent years into account*
+
+```{r, include=FALSE}
+#Loading initial packages and wrangling data
+#####
+#Loading packages
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(ggthemr)
+library(ggpubr)
+library(gridExtra)
+library(kableExtra)
+library(factoextra)
+library(knitr)
+ggthemr("dust") #adding dust theme to all plots generated
+londoncrime <-read_csv("londoncrime.csv")
+head(londoncrime)
+
+#Remove columns for the year 2010, keeping years with data for all months
+#Renaming columns
+londoncrime <- rename(londoncrime, 
+"OffenceCategory" = "Major Category", "OffenceType" = "Minor Category", 
+"Jan2008" = "200801", "Feb2008" = "200802", "Mar2008" = "200803","Apr2008" = "200804", 
+"May2008" = "200805", "Jun2008" = "200806","Jul2008" = "200807", "Aug2008" = "200808",
+"Sep2008" = "200809","Oct2008" = "200810", "Nov2008" = "200811", "Dec2008" = "200812",
+"Jan2009" = "200901", "Feb2009" = "200902", "Mar2009" = "200903","Apr2009" = "200904", 
+"May2009" = "200905", "Jun2009" = "200906","Jul2009" = "200907", "Aug2009" = "200908",
+"Sep2009" = "200909","Oct2009" = "200910", "Nov2009" = "200911", "Dec2009" = "200912",
+ "Jan2010" = "201001", "Feb2010" = "201002", "Mar2010" = "201003","Apr2010" = "201004", 
+ "May2010" = "201005", "Jun2010" = "201006","Jul2010" = "201007", "Aug2010" = "201008",
+"Sep2010" = "201009","Oct2010" = "201010", "Nov2010" = "201011", "Dec2010" = "201012",
+"Jan2011" = "201101", "Feb2011" = "201102", "Mar2011" = "201103","Apr2011" = "201104", 
+"May2011" = "201105", "Jun2011" = "201106","Jul2011" = "201107", "Aug2011" = "201108",
+"Sep2011" = "201109","Oct2011" = "201110", "Nov2011" = "201111", "Dec2011" = "201112",
+"Jan2012" = "201201", "Feb2012" = "201202", "Mar2012" = "201203", "Apr2012" = "201204", 
+"May2012" = "201205", "Jun2012" = "201206","Jul2012" = "201207", "Aug2012" = "201208", 
+"Sep2012" = "201209","Oct2012" = "201210", "Nov2012" = "201211", "Dec2012" = "201212", 
+"Jan2013" = "201301", "Feb2013" = "201302", "Mar2013" = "201303", "Apr2013" = "201304", 
+"May2013" = "201305", "Jun2013" = "201306", "Jul2013" = "201307", "Aug2013" = "201308", 
+"Sep2013" = "201309", "Oct201" = "201310", "Nov2013" = "201311", "Dec2013" = "201312",
+"Jan2014" = "201401", "Feb2014" = "201402", "Mar2014" = "201403", "Apr2014" = "201404", 
+"May2014" = "201405", "Jun2014" = "201406", "Jul2014" = "201407", "Aug2014" = "201408", 
+"Sep2014" = "201409", "Oct2014" = "201410", "Nov2014" = "201411", "Dec2014" = "201412",
+"Jan2015" = "201501", "Feb2015" = "201502", "Mar2015" = "201503", "Apr2015" = "201504", 
+"May2015" = "201505", "Jun2015" = "201506", "Jul2015" = "201507", "Aug2015" = "201508", 
+"Sep2015" = "201509", "Oct2015" = "201510", "Nov2015" = "201511", "Dec2015" = "201512",
+"Jan2016" = "201601", "Feb2016" = "201602", "Mar2016" = "201603", "Apr2016" = "201604", 
+"May2016" = "201605", "Jun2016" = "201606","Jul2016" = "201607", "Aug2016" = "201608", 
+"Sep2016" = "201609", "Oct2016" = "201610", "Nov2016" = "201611", "Dec2016" = "201612",
+"Jan2017" = "201701", "Feb2017" = "201702", "Mar2017" = "201703", "Apr2017" = "201704", 
+"May2017" = "201705", "Jun2017" = "201706", "Jul2017" = "201707", "Aug2017" = "201708", 
+"Sep2017" = "201709", "Oct2017" = "201710", "Nov2017" = "201711", "Dec2017" = "201712",
+"Jan2018" = "201801", "Feb2018" = "201802", "Mar2018" = "201803", "Apr2018" = "201804", 
+"May2018" = "201805", "Jun2018" = "201806", "Jul2018" = "201807", "Aug2018" = "201808", 
+"Sep2018" = "201809", "Oct2018" = "201810", "Nov2018" = "201811", "Dec2018" = "201812")
+
+#Check for missing data 
+sapply(londoncrime, function(x) all(is.na(x)))
+#No missing data 
+londoncrime <- londoncrime %>% 
+  mutate(Total2008 = rowSums(select(., ends_with("2008")))) %>%
+  mutate(Total2009 = rowSums(select(., ends_with("2009")))) %>%
+  mutate(Total2010 = rowSums(select(., ends_with("2010")))) %>%
+  mutate(Total2011 = rowSums(select(., ends_with("2011")))) %>%
+  mutate(Total2012 = rowSums(select(., ends_with("2012")))) %>%
+  mutate(Total2013 = rowSums(select(., ends_with("2013")))) %>%
+  mutate(Total2014 = rowSums(select(., ends_with("2014")))) %>%
+  mutate(Total2015 = rowSums(select(., ends_with("2015")))) %>%
+  mutate(Total2016 = rowSums(select(., ends_with("2016")))) %>%
+  mutate(Total2017 = rowSums(select(., ends_with("2017")))) %>%
+  mutate(Total2018 = rowSums(select(., ends_with("2018"))))
+#####
+#################Total number of offences by year
+#####
+#Creating a dataframe with total number of offences for the years 2011-2018
+#####
+totalperyear <- c(sum(londoncrime$Total2008), sum(londoncrime$Total2009),sum(londoncrime$Total2010), 
+                  sum(londoncrime$Total2011), sum(londoncrime$Total2012),sum(londoncrime$Total2013), 
+                  sum(londoncrime$Total2014),sum(londoncrime$Total2015), sum(londoncrime$Total2016),
+                  sum(londoncrime$Total2017), sum(londoncrime$Total2018))
+totalperyear <- data.frame(Year = 2008:2018, totaloffences = totalperyear)
+totalperyear
+######
+#Plotting total offences per year
+#####
+plotoffences20082018 <-ggplot(data = totalperyear, aes(x = Year, y = totaloffences))+
+  geom_line(color = "red") +
+  ylab("Total offences") +
+  xlab("Year") +
+  ggtitle("Total number of recorded offences in the MPD", subtitle = "Years 2008 - 2018") +
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"), plot.subtitle = element_text(hjust = 0.5))+
+  scale_x_continuous(breaks = c(2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018))
+#Adding annotation to plot
+plotoffences20082018 <- annotate_figure(plotoffences20082018,fig.lab = "FIGURE 1", fig.lab.face = "bold", fig.lab.pos = "top.right")
+```
+# Objectives
+
+To explore crime MPD wide and ultimately find the safest and most dangerous boroughs within the MPD I decided to:
+
+1. Start by looking at an overview of the crime rates in London between 2008-2018. I wanted to find out whether the number of recorded offences increased or decreased between 2008-2018 in the Metropolitan Police District of London
+
+2. Choose a recent year for further analysis 
+
+3. Gain further insight into the crimes committed in the MPD by analysing the offence categories with the highest number of recorded offences for the chosen year
+
+4. Analyse the offence types to understand the number of offences at the offence type level
+
+5. Examine a heatmap and rank borough safety using the number of recorded offences as an indicator 
+
+6. Group boroughs with similar safety levels through k-means clustering. Furthermore, I wanted to see if I could find a cluster of boroughs with the highest crime levels and a cluster of boroughs with the lowest crime levels
+
+7. Finally, look at the top 3 offence types committed in the safest and most dangerous MPD boroughs that were identified through clustering
+
+# Data
+
+For this project, I analysed 'MPS Borough Level Crime' which was sourced from the London Datastore website (Greater London Authority, 2019). The data covers the number of recorded offences in the 32 MPD boroughs at the offence category and offence type levels for each month over the years 2008-2018. This dataset has 1,056 observations and 135 variables. These variables are a mix of categorical and numeric types. Additionally, the data was provided by the London Metropolitan Police Service and therefore does not cover offences under the City of London Police jurisdiction - recorded offences in the City of London. After loading the packages and reading in the data in R, I carried out initial data wrangling. I began by renaming the columns as more identifiable and easier names to code. For example, the column ‘200801’ was changed to ‘Jan2008’ and ‘Major Category’ was changed to ‘Offence Category’. I then checked for missing data (using sapply) and created new columns with the aid of the mutate function and pipes to show the total offences for each year (using the month columns for each year). Additional wrangling was done throughout the analysis using functions such as group_by, filter, select, dcast, summarize and top_n to name a few. 
+
+# Results
+**Offences between 2008-2018**
+
+In Figure 1 below, I have plotted the total number of recorded offences in the MPD for each year between 2008-2018. 2008 saw the highest crime rate of 847,795 recorded offences after which there was a decline in crime rates every year until 2013 (which had the lowest crime rate for those 10 years of 646,953 total recorded offences). It should be noted that there was a sharp decline in crime of 17.99% between 2012 and 2013.As we can see in Figure 1, crime rates have increased every year between 2013 - 2018 with the sharpest increase in recorded offences from 760,609 offences in 2016 to 824,620 offences in 2017 - an 8.42% increase.
+
+To take a deeper look at crime within the MPD, I wanted to isolate a single year for further analysis. 2008 had the highest number of offences for all 10 years and there was a significant drop in crime in 2013. However, preference was given to analysing crime for the year 2018 given that it was the most recent year with data for all 12 months and it has the second highest crime rate between 2008 and 2018 of 839,422 recorded offences. Therefore, **going forward, further analysis was only done for the year 2018**.
+
+
+```{r, fig.width=12,fig.height=5, echo=FALSE} 
+plotoffences20082018
+```
+
+
+```{r, include=FALSE}
+#Isolating the year 2018 for analysis
+#####
+#Creating dataframe for the year 2018
+#####
+london2018<- londoncrime%>%
+  select(Borough, OffenceCategory, OffenceType, ends_with("2018"))
+#####
+###########Looking at recorded offences categories for 2018
+#####
+#Finding the offence sum in 2018 for each offence category 
+#####
+OffenceCatSum2018<- london2018%>%
+  group_by(OffenceCategory)%>%
+  summarise(sum = sum(Total2018))
+#Reordering based on numeric values
+library("scales")
+#Arranging in descending order by number of offences
+OffenceCatSum2018 <- OffenceCatSum2018[order(OffenceCatSum2018$sum, decreasing = TRUE),]
+#####
+# Horizontal Bar chart of offence category by number of offences
+#####
+plotcatoffence <- ggplot(data = OffenceCatSum2018, aes(x = reorder(OffenceCategory, sum,), y = sum)) +
+  geom_bar(stat = 'identity')+
+  geom_text(aes(label = sum), stat = 'identity', size = 3, hjust = -0.08)+
+  scale_y_continuous(labels = comma)+
+  xlab("Offence Category")+
+  ylab("Number of Offences")+
+  ggtitle("Recorded offences (by offence category) in the MPD in 2018")+
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"))+
+  coord_flip() #turning into a horizontal bar chart
+#Adding annotation to plot
+plotcatoffence<- annotate_figure(plotcatoffence,fig.lab = "FIGURE 2", fig.lab.face = "bold", fig.lab.pos = "top.right")
+#####
+##########Looking at recorded offence types in 2018
+#####
+#Finding the sum for each category
+#####
+OffenceTypeSum2018<- london2018%>%
+  group_by(OffenceType)%>%
+  summarise(sum = sum(Total2018))
+#Arranging in descending order by number of offences
+OffenceTypeSum2018 <- OffenceTypeSum2018[order(OffenceTypeSum2018$sum, decreasing = TRUE),]
+#####
+#Horizontal Bar chart of offence type by number of offences
+#####
+plotoffencebytype<- ggplot(data = OffenceTypeSum2018, aes(x = reorder(OffenceType, sum,), y = sum)) +
+  geom_bar(stat = 'identity')+
+  geom_text(aes(label = sum), stat = 'identity', size = 3, hjust = -0.04)+
+  scale_y_continuous(labels = comma)+
+  xlab("Offence Type")+
+  ylab("Number of Offences")+
+  ggtitle("Recorded offences (by offence type) in the MPD in 2018")+
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"))+
+  coord_flip() #turning into a horizontal bar chat
+
+#Adding annotation to plot
+plotoffencebytype <- annotate_figure(plotoffencebytype,fig.lab = "FIGURE 3", fig.lab.face = "bold", fig.lab.pos = "top.right")
+```
+
+**Offences at the category level**
+
+One of the things I wanted to understand was the type of crimes taking place and the levels at which they are committed. As displayed in Figure 2, theft and handling was the most prevalent offence category. It accounted for 37.89% of the total recorded offences in 2018 in the MPD area - a total of 318,019 recorded offences. Violence against the person accounted for 30.86% of the total recorded offences - 259,086 recorded offences in 2018. These two categories contained approximately 68.75% of all reported offences in 2018. The 7 other offence categories were shown to have less than 100,000 recorded offences for the year 2018. 
+
+In addition to crime at the category level, I decided to analyse crime in the MPD at the type level in order to deduce if single offence types were responsible for the high levels of recorded offences in the theft and handling and violence against the person offence categories. 
+
+
+```{r, fig.width=12,fig.height=5, echo=FALSE}
+plotcatoffence
+```
+
+**Offences at the type level**
+
+According to Figure 3 below, the theft and handling category had four offence types in the top 10 offence types committed in 2018: 
+
+• Other theft - 13.41% of overall crime and the most recorded offences of any offence type
+
+• Theft from motor vehicle - 7.87% of overall crime
+
+• Theft from shops - 5.26% of overall crime
+
+• Other theft person - 5.12% of overall crime
+
+Violence against the person had 3 of the top 10 offence types committed in 2018:
+
+• Harassment - 10.83% of overall crime
+
+• Common Assault - 8.59% of overall crime
+
+• Assault with injury - 6.10% of overall crime
+
+```{r, fig.width=12.5,fig.height=6, echo=FALSE}
+plotoffencebytype
+```
+
+Other theft is a ‘catch-all’ term for thefts that are not in other categories. A few examples for other thefts include ‘theft by an employee, blackmail and making off without payment’ (Met Police, 2019). Additionally it includes personal theft where there was no contact between the offender and the victim, profiting from or concealing knowledge of the proceeds of crime, theft of mail and even theft of electricity (Home Office, 2011). 
+
+‘Harassment is when a person is subject to persistent threatening or abusive behaviour’ (Met Police, 2019). It can cause significant distress and can be done in person, over the phone, online and through stalking. Harassment can go on for years without the victim knowing who it is. With so many ways to carry out harassment (especially anonymously) it is unsurprising that it is the highest type of violence against the person offence. 
+
+```{r, include=FALSE}
+###########Offences at the borough level
+#####
+#Offence sum for each borough
+#####
+BoroughCrime2018<- london2018%>%
+  group_by(Borough)%>%
+  summarise(sum = sum(Total2018))
+#Arranging in descending order by number of offences
+BoroughCrime2018 <- BoroughCrime2018[order(BoroughCrime2018$sum, decreasing = TRUE),]
+#####
+# Horizontal Bar chart of offence category by number of offences
+#####
+plotboroffence<-ggplot(data = BoroughCrime2018, aes(x = reorder(Borough, sum,), y = sum)) +
+  geom_bar(stat = 'identity')+
+  geom_text(aes(label = sum), stat = 'identity', size = 3, hjust = -0.04)+
+  scale_y_continuous(labels = comma)+
+  xlab("Borough")+
+  ylab("Number of Offences")+
+  ggtitle("Number of offences in each Greater London borough in 2018")+
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"))+
+  coord_flip() #turning into a horizontal bar chart
+#####
+####Create dissimilarity matrix
+#####
+#Turning Offence categories into columns with total offences for the year as values
+londonbycat <- select(london2018, Borough, OffenceCategory, Total2018)
+library(reshape2)
+londonbycat <- dcast(londonbycat, Borough ~ OffenceCategory, fun.aggregate = sum)
+x = londonbycat[,-1]
+rownames(x) <- londonbycat$Borough
+distance <- get_dist(x)
+plotdistmatrix<- fviz_dist(distance,gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))+
+  labs(title = "Dissimilarity Matrix")
+#####
+#Arrange Figure 4
+#####
+figure4 <- ggarrange(plotboroffence,plotdistmatrix,labels = c("A", "B"), ncol=1)
+#Adding annotation to plot
+figure4 <- annotate_figure(figure4,fig.lab = "FIGURE 4", fig.lab.face = "bold", fig.lab.pos = "top.right")
+```
+
+**Offences at the borough level and dissimilarity matrix**
+
+Figure 4A shows the recorded offences for each borough. Westminster, by far, has the most recorded offences (62995) and Sutton has the lowest number of recorded offences (12092) before clustering, showing that they are clearly the most dangerous and safest boroughs respectively. 
+
+I also decided to use a distance matrix to further visualise the distance between the boroughs in Figure 4B.  Similar boroughs are closer in distance to each other and have a lighter blue colour in the square of the matrix. As the boroughs have more dissimilarities between each other, the colour becomes red (the brighter the colour, the bigger the differences). With the exception of itself, Westminster is red for every borough. However the other boroughs have a mixture of red and blue and are more varied than Westminster. For example, Tower Hamlets, Lambeth, Southwark, Newham show quite large dissimilarities with Westminster, Barking and Dagenham, Havering, Bexley, Harrow, Sutton, Richmond upon Thames, Kingston upon Thames and Merton. However, they have relatively small dissimilarities with other boroughs. 
+
+```{r, fig.width=12,fig.height=14, echo=FALSE}
+figure4
+```
+
+
+```{r, include= FALSE}
+#####
+#########Kmeans clustering
+#####
+#Wrangling data for clustering
+#####
+#Turning Offence categories into columns with total offences for the year as values
+londonbycat <- select(london2018, Borough, OffenceCategory, Total2018)
+londonbycat <- dcast(londonbycat, Borough ~ OffenceCategory, fun.aggregate = sum)
+#####
+###Deciding the best number of clusters
+#####
+#Removing Westminster, a clear outlier
+londonbycat <- londonbycat[-c(32),]
+#Setting seed and assigning values 
+set.seed(12345678)
+x = londonbycat[,-1] #removing column with categorial variables
+#Assigning boroughs as row names
+rownames(x) <- londonbycat$Borough
+y = londonbycat$Borough
+#Creating an empty dataframe
+dataf<- data.frame()
+#####
+#Using for loop 
+#####
+for(i in 1:10){
+  km<- kmeans(x, centers = i)$tot.withinss #Extracting TWSS
+  dataf<- rbind(dataf, cbind(i,km)) #Creating a dataframe with clusters &TWSS
+}
+#Smooth Spline with 3 degrees of freedom
+out.spl <- with(dataf, smooth.spline(i, km, df =3))
+#Calculating the 2nd derivative of the curve
+derivative.out <- with(dataf, predict(out.spl, x = i, deriv = 2))
+derivative.out
+#Showing  the maximum of y corresponding to the best number of clusters 
+max(derivative.out$y)
+#Best number of clusters is 3
+#####
+#Plotting the totwss against number of clusters, adding line at max point of curvature (3)
+#####
+plotwss<-ggplot(data = dataf, aes(x=i, y = km))+
+  geom_point(colour = 'red') +
+  geom_line()+
+  geom_vline(xintercept = 3, colour = 'blue', linetype = 'dotdash') +
+  xlab("Cluster Size") +
+  ylab("Total Within Sum of Squares") + 
+  ggtitle("Total Within Sum of Squares vs Cluster Size", subtitle = "Kmeans clustering")+
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"), plot.subtitle = element_text(hjust = 0.5))
+######
+#Performing kmeans and showing a table with cluster means
+#####
+kc<- kmeans(x,3, nstart = 25)
+kc
+#####
+############Visualising the clusters
+#####
+#Plot k=3
+#####
+plotcluster <- fviz_cluster(kc, data = x, labelsize = 9, main = "K means cluster analysis of London Boroughs:K=3")
+#####
+#Table of cluster means
+#####
+clustermeans <- matrix(c(1884.38,1263.00,516.37,17.88,320.00, 440.75,381.63, 4961.88, 4966.3, 3144.40, 1969.40, 1075.33, 40.80, 615.87, 881.33, 642.87,92860.67, 8470.00, 3579.13,2088.38,1686.00,48.625,607.6250, 1655.88,820.75, 12984.750, 9853.50),
+                       ncol=9,byrow=TRUE)
+colnames(clustermeans) <- c("Burglary", "Criminal Damage","Drugs","Fraud or Forgery","Other Notifiable Offences",  
+                            "Robbery"," Sexual Offences","Theft and Handling","Violence Against the Person" )
+rownames(clustermeans) <- c("Cluster 1","Cluster 2","Cluster 3")
+clustermeans <- as.table(clustermeans)
+figure6<- kable(clustermeans)%>%
+kable_styling(latex_options = c("striped", "scale_down"))
+##Arranging plots
+figure5 <- ggarrange(plotwss,plotcluster,
+                        labels = c("A", "B"),
+                        nrow=2)
+#Annotate
+figure5 <- annotate_figure(figure5,fig.lab = "FIGURE 5", fig.lab.face = "bold", fig.lab.pos = "top.right")
+```
+
+**Clustering Boroughs**
+
+Additional investigation was done to ascertain whether or not it was possible to divide boroughs (our data points) into clusters using K-means clustering. Another aspect to highlight is that these data points are 9 dimensional - the 9 dimensions are the offence categories. 
+
+Only 31 of the 32 boroughs were used in the cluster analysis. As discovered in Figure 4A and Figure 4B, Westminster is a clear outlier having 27,054 more offences than the borough with the second highest number of offences - Newham.  The k-means method is sensitive to outliers as it aims to optimize the sum of squares. The algorithm updates cluster centres using the mean of the data points close to each centroid. Therefore, outliers with large deviations have significant impacts on the mean of the entire cluster, moving the centroid closer to the outliers. As such, Westminster will be excluded from this analysis. 
+
+Additionally, before performing k-means cluster analysis, it was necessary to decide the best number of clusters. In order to find that number I plotted the within sum of squares vs cluster sizes in Figure 5A. I then used the elbow method to determine the cluster size (K) at the ‘elbow’ of the plot. We can see from this plot that the elbow was found at cluster size 3. 
+
+```{r, fig.width=12,fig.height=12, echo=FALSE}
+figure5
+```
+Preferably, I would have liked to see a slower and smoother decline after cluster size 3 but it is clear enough from Figure 5A that 3 is the best number of clusters for this data. 
+
+Using a K of 3, three distinct clusters were identified (without overlap) as shown in Figure 5B. As expected, these findings match our results in Figure 4A. Table 1 also shows Cluster 1 of size 8 had the lowest means across all offence categories. Cluster 2 of size 15 had the second lowest means across all offence categories except for other notifiable offences - it had the highest mean in this category, slightly higher than Cluster 3 of size 8 (which had the highest means in all categories except other notifiable offences). It should also be noted that although there are 9 dimensions, principal component analysis was done and the data points were plotted in Figure 5B in accordance with principal components one and two which accounted for 73% and 9.9% of the variance in the data respectively.
+
+
+**Figure 6: Table showing cluster means for 9 variables**
+
+```{r, fig.width=2,fig.height=4, echo=FALSE}
+figure6
+```
+
+```{r,include=FALSE}
+#####
+#Offence types committed in the safest boroughs
+#####
+#Selecting Columns
+safndanbor2018 <- london2018%>%
+  select(Borough, OffenceType, Total2018)
+safest2018 <- filter(safndanbor2018,Borough %in% c("Sutton","Kingston upon Thames","Richmond upon Thames", "Merton", "Harrow", "Bexley", "Barking and Dagenham", "Havering"))
+#Grouping by category
+safesttype2018 <- safest2018 %>%
+  group_by(Borough, OffenceType) %>%
+  summarize(tsum = sum(Total2018)) %>%
+  top_n(3)
+
+safesttype2018 <- safesttype2018[order(safesttype2018$Borough,safesttype2018$tsum, decreasing = TRUE),]
+
+plotsafest<-ggplot(data = safesttype2018, aes(x = Borough,y = tsum, fill= OffenceType)) +
+  geom_bar(stat = 'identity', position = position_dodge2())+
+  scale_y_continuous(labels = comma)+
+  xlab("Borough")+
+  ylab("Number of Offences")+
+  ggtitle("Top 3 highest number of recorded offence types in the safest MPD boroughs", subtitle = "For the year 2018")+
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"))+
+  theme(plot.subtitle = element_text(size = 10, hjust = 0.5))
+  theme(axis.text.x = element_text(angle= 45, hjust = 1))
+#####
+#Offence types committed in the most dangerous boroughs
+#####
+#Selecting the most dangerous boroughs
+dangerous2018 <- filter(safndanbor2018,Borough %in% c("Westminster","Newham","Southwark", "Camden", "Lambeth", "Tower Hamlets", "Hackney", "Haringey", "Croydon"))
+#Selecting the top 3 offence types for each borough
+dangeroustype2018 <- dangerous2018 %>%
+  group_by(Borough, OffenceType) %>%
+  summarize(tsum = sum(Total2018)) %>%
+  top_n(3)
+#Order columns
+dangeroustype2018 <- dangeroustype2018[order(dangeroustype2018$Borough,dangeroustype2018$tsum, decreasing = TRUE),]
+#Plot offence types in most dangerous boroughs
+plotdangerous<-ggplot(data = dangeroustype2018, aes(x = Borough,y = tsum, fill= OffenceType)) +
+  geom_bar(stat = 'identity', position = position_dodge2())+
+  scale_y_continuous(labels = comma)+
+  xlab("Borough")+
+  ylab("Number of Offences")+
+  ggtitle("Top 3 highest number of recorded offence types in the most dangerous MPD boroughs", subtitle = "For the year 2018")+
+  theme(plot.title = element_text(size = 10, hjust = 0.5, face = "bold"))+
+  theme(plot.subtitle = element_text(size = 10, hjust = 0.5))+
+  theme(axis.text.x = element_text(angle= 45, hjust = 1))
+figure7 <- ggarrange(plotsafest,plotdangerous,
+                        labels = c("A", "B"),
+                        nrow=2)
+#Annotate
+figure7 <- annotate_figure(figure7,fig.lab = "Figure 7", fig.lab.face = "bold", fig.lab.pos = "top.right")
+```
+
+**Safest and most dangerous boroughs**
+
+Sutton, Kingston upon Thames, Richmond upon Thames, Merton, Harrow, Bexley, Barking and Dagenham and Havering, identified in Cluster 1, are the safest boroughs in the MTD. 
+
+Although other theft accounted for the highest number of offences MTD wide, for each of the safest boroughs, harassment was the offence type with the most recorded offences as shown in Figure 7A. With the exclusion of Richmond upon Thames, other theft was the second highest offence type for 7 of the 8 safest boroughs. Surprisingly, other theft wasn’t one of the top 3 offence types in Richmond upon Thames. Theft from motor vehicle was the second highest in the borough followed by burglary in a dwelling as the 3rd highest offence in the borough. 
+
+Westminster and the 8 boroughs in Cluster 3 - Newham, Southwark, Camden, Lambeth, Tower Hamlets, Hackney, Haringey, Croydon and Brent were discovered to be the most dangerous boroughs in the MTD. 
+
+Unlike the safest boroughs, other theft was the offence type with the highest number of offences across 8 of the 9 most dangerous boroughs (Figure 7B). In Croydon, however, harassment was the highest recorded offence followed by other theft and common assault. 
+
+```{r, fig.width=12,fig.height=14, echo=FALSE}
+figure7
+```
+
+# Limitations
+
+One of the limitations of the dataset was the fact that analysis had to be restricted to the Metropolitan Police District. The dataset included 32 boroughs but did not include the City of London. This is because the City of London has its own police service - the City of London Police and therefore these crimes were not included in the dataset obtained from the Metropolitan Police. 
+
+Additionally, like Westminster, the City of London is a major tourist and commuter destination and it has a prominent nightlife as well. Through analysis of the Greater London county as a whole, we may have seen City of London emerge as a dangerous borough as well. 
+
+Another limitation was the vagueness of some of the offence types, e.g., other theft which is the top offence in the MPD. It makes it more difficult to assess the exact crimes committed in these boroughs. 
+
+# Conclusion
+
+* The year 2018 saw the second highest number of recorded offences in the MPD of 839,422 offences between 2008-2018
+
+* Upon closer investigation of crimes committed in 2018, theft and handling and violence against the person were the 2 categories with the most recorded offences in the MPD. It was found that 37.89% of all offences in the MPD in 2018 were under the theft and handling category, 30.86% of the total offences were under the violence against the person category
+
+* At the type level, other theft and harassment were the two type levels with the highest number of recorded offences accounting for 13.41% and 10.83% of recorded offences respectively
+
+* Using the dissimilarity matrix in Figure 4B and the bar chart of offences at the borough level (Figure 4A), Westminster was a clear outlier, with the most number of recorded offences of any other MPD borough. It had large dissimilarities with all other boroughs and was therefore removed from the dataset to complete k-means cluster analysis 
+
+* Through cluster analysis, 3 clusters were identified. Cluster 1 of size 8 was determined to contain the safest boroughs, Cluster 2 was seen to contain the second safest/most dangerous boroughs with cluster size 15. Cluster 3 was of size 9 and was established as containing the most dangerous boroughs (in addition to Westminster)
+
+* Sutton was found to be the safest borough in the MPD in 2018 when number of recorded offences was used as an indicator of overall safety. Cluster 1 had the safest boroughs in the MPD in 2018. Kingston upon Thames was the second safest borough followed by Richmond upon Thames, Merton, Harrow, Bexley, Barking and Dagenham and Havering
+
+* Westminster, however, was the most dangerous borough in the MPD in 2018 by a large margin. The other most dangerous boroughs were found in Cluster 3 - Newham was the second most dangerous borough, followed by Southwark, Camden, Lambeth, Tower Hamlets, Hackney, Haringey and Croydon
+
+# References
+
+Home Office (2011). User Guide to Home Office Crime Statistics. [online] Available at: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/116226/user-guide-crime-statistics.pdf [Accessed 05 Oct. 2020].
+
+Met.police.uk. (2019). Harassment | Crime prevention | The Met. [online] Available at: https://www.met.police.uk/cp/crime-prevention/harassment/af/Harassment/ [Accessed 05 Oct. 2020].
+
+Greater London Authority. (2019). Recorded Crime: Geographic Breakdown – London Datastore. [online] Available at: https://data.london.gov.uk/dataset/recorded_crime_summary [Accessed 05 Oct. 2020].
+
+Police.uk. (2019). Advice and crime prevention. [online] Available at: https://www.police.uk/pu/advice-crime-prevention/ [Accessed 05 Oct. 2020].
+
